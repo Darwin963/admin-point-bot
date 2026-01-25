@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="ar">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>مصحح الأخطاء - بوت</title>
+
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      direction: rtl;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      margin: 0;
+      padding: 20px;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+
+    body::before {
+      content: '';
+      position: absolute;
+      inset: -50%;
+      background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+      animation: float 20s linear infinite;
+    }
+
+    @keyframes float {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    .shape {
+      position: absolute;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.1);
+      animation: bounce 6s ease-in-out infinite;
+    }
+
+    .shape:nth-child(1) { width: 80px; height: 80px; top: 10%; left: 10%; }
+    .shape:nth-child(2) { width: 60px; height: 60px; top: 20%; right: 15%; animation-delay: 2s; }
+    .shape:nth-child(3) { width: 100px; height: 100px; bottom: 20%; left: 20%; animation-delay: 4s; }
+
+    @keyframes bounce {
+      0%,100% { transform: translateY(0); }
+      50% { transform: translateY(-20px); }
+    }
+
+    .container {
+      max-width: 800px;
+      margin: auto;
+      background: rgba(255,255,255,0.9);
+      padding: 30px;
+      border-radius: 15px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.2);
+      position: relative;
+      z-index: 1;
+    }
+
+    h2, p { text-align: center; }
+
+    label {
+      display: block;
+      margin: 10px 0 5px;
+      font-weight: bold;
+    }
+
+    select, textarea, button {
+      width: 100%;
+      padding: 12px;
+      margin-bottom: 15px;
+      border-radius: 8px;
+      border: 1px solid #e2e8f0;
+      font-size: 16px;
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 120px;
+    }
+
+    button {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      transition: .2s;
+    }
+
+    button:hover {
+      transform: translateY(-2px);
+    }
+
+    #send {
+      background: linear-gradient(135deg, #48bb78, #38a169);
+    }
+
+    .file-row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .file-row select {
+      flex: 1;
+    }
+
+    h3 {
+      border-bottom: 2px solid #e2e8f0;
+      padding-bottom: 8px;
+    }
+
+    pre {
+      background: #f7fafc;
+      padding: 15px;
+      border-radius: 8px;
+      border: 1px solid #e2e8f0;
+      max-height: 300px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="shape"></div>
+  <div class="shape"></div>
+  <div class="shape"></div>
+
+  <div class="container">
+    <h2>مصحح الأخطاء - بوت</h2>
+    <p>اكتب المشكلة أو سجل الأخطاء، ويمكنك إرفاق الكود.</p>
+
+    <label>اختر ملف من المشروع (اختياري):</label>
+    <div class="file-row">
+      <select id="fileSelect">
+        <option value="">-- اختر ملف --</option>
+        <option>bot.py</option>
+        <option>Add_points_order.js</option>
+        <option>logs.js</option>
+        <option>panel.js</option>
+        <option>points.js</option>
+        <option>top.js</option>
+      </select>
+      <button type="button" id="loadFile">تحميل</button>
+    </div>
+
+    <label>وصف / الخطأ:</label>
+    <textarea id="problem" placeholder="اكتب وصف الخطأ أو السجل"></textarea>
+
+    <label>الكود (اختياري):</label>
+    <textarea id="code" placeholder="ألصق الكود هنا"></textarea>
+
+    <button id="send">أرسل للإصلاح</button>
+
+    <h3>الرد:</h3>
+    <pre id="reply">لم يتم إرسال شيء بعد.</pre>
+
+    <button id="applyFix" style="display:none;">طبق الإصلاح</button>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
