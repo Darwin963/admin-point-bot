@@ -1,6 +1,6 @@
 """
 🤖 Bot Hosting Manager
-موقع استضافة بوتات Discord - إضافة عدد لا محدود من البوتات
+موقع استضافة بوتات Discord - مفتوح للجميع - مجاني 100%
 """
 
 from flask import Flask, render_template_string, request, jsonify
@@ -140,6 +140,17 @@ HTML_TEMPLATE = """
         
         .header p {
             color: #666;
+            font-size: 1.1em;
+        }
+        
+        .public-notice {
+            background: linear-gradient(135deg, #00c853 0%, #00e676 100%);
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            margin-bottom: 20px;
+            font-weight: bold;
             font-size: 1.1em;
         }
         
@@ -332,7 +343,11 @@ HTML_TEMPLATE = """
     <div class="container">
         <div class="header">
             <h1>🤖 استضافة البوتات Discord</h1>
-            <p>أضف وأدر عدد لا محدود من البوتات - مجاناً للأبد</p>
+            <p>منصة مجانية ومفتوحة للجميع - أضف عدد لا محدود من البوتات</p>
+        </div>
+        
+        <div class="public-notice">
+            ✨ هذه المنصة مجانية 100% ومتاحة لجميع المستخدمين - لا توجد قيود!
         </div>
         
         <div class="stats">
@@ -594,10 +609,11 @@ def auto_start_bots():
             start_bot(bot_name, info['file'], info.get('token'))
 
 if __name__ == '__main__':
-    print("🤖 Bot Hosting Manager")
     print("=" * 50)
-    print("📡 Server: http://0.0.0.0:8080")
-    print("🌐 Access: http://localhost:8080")
+    print("Bot Hosting Manager")
+    print("=" * 50)
+    print("Server: http://0.0.0.0:8080")
+    print("Access: http://localhost:8080")
     print("=" * 50)
     
     # تشغيل البوتات التلقائية
