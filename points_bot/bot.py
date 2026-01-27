@@ -29,7 +29,7 @@ def keep_alive():
 # CONFIGURATION
 # ============================================================ 
 
-load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '.env'))
+load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '..', '.env'))
 
 TOKEN = os.getenv("DISCORD_TOKEN")
 if not TOKEN:
@@ -74,7 +74,7 @@ def init_db():
             db = None
             c = None
     elif DB_TYPE == "sqlite":
-        db = sqlite3.connect("system.db")
+        db = sqlite3.connect("database/system.db")
         db.row_factory = sqlite3.Row
         c = db.cursor()
         logging.info("Connected to SQLite database.")
@@ -84,15 +84,64 @@ def init_db():
         c.execute("CREATE TABLE IF NOT EXISTS salaries (user_id BIGINT PRIMARY KEY, last_salary REAL)")
         c.execute("CREATE TABLE IF NOT EXISTS antifarm (user_id BIGINT PRIMARY KEY, last_msg TEXT, last_time REAL)")
         c.execute("CREATE TABLE IF NOT EXISTS cooldowns (user_id BIGINT PRIMARY KEY, last_message REAL)")
+        c.execute("CREATE TABLE IF NOT EXISTS blacklist (user_id BIGINT PRIMARY KEY, reason TEXT, end_date REAL)")
         db.commit()
 
 # ============================================================ 
 # SETTINGS & IN-MEMORY DATA
 # ============================================================ 
 
-ADMIN_ROLES = [1092398849684938873, 1433877184803504439, 1433749601529233408, 1371504072582234286, 1433877098908614816, 1433749600920928286, 1433749606633832499, 1092398849299058738, 1371504076239405246, 1433749602867089498, 1433749600136593449, 1092398849647190027]
-AUTO_ROLES = {1: 1092398849647190027, 90: 1433749600136593449, 120: 1433749602867089498, 350: 1371504076239405246, 750: 1092398849299058738, 1000: 1433749606633832499, 1600: 1433749600920928286, 2000: 1433877098908614816, 2500: 1371504072582234286, 3000: 1433749601529233408, 4000: 1433877184803504439, 10000: 1092398849684938873}
-STAFF_SALARIES = {1092398849684938873: 150, 1433877184803504439: 130, 1433749601529233408: 120, 1371504072582234286: 110, 1433877098908614816: 100, 1433749600920928286: 90, 1433749606633832499: 80, 1092398849299058738: 70, 1371504076239405246: 60, 1433749602867089498: 50, 1433749600136593449: 40, 1092398849647190027: 30}
+# Admin roles, copied from your setup
+ADMIN_ROLES = [1092398849299058736, 1286654124527456317, 1371504049115107450, 1286656850871451688, 1293197081997086805, 1371504063086067782, 1092398849684938873, 1433877184803504439, 1433749601529233408, 1371504072582234286, 1433877098908614816, 1433749600920928286, 1433749606633832499, 1092398849299058738, 1371504076239405246, 1433749602867089498, 1433749600136593449, 1092398849647190027]
+
+# XP requirements for each role
+XP_FOR_ROLES = {
+    1092398849647190027: 1,
+    1433749600136593449: 90,
+    1433749602867089498: 120,
+    1371504076239405246: 350,
+    1092398849299058738: 750,
+    1433749606633832499: 1000,
+    1433749600920928286: 1600,
+    1433877098908614816: 2000,
+    1371504072582234286: 2500,
+    1433749601529233408: 3000,
+    1433877184803504439: 4000,
+    1092398849684938873: 10000
+}
+
+# Role tasks description
+ROLE_TASKS = {
+    1092398849647190027: "رد على التكتات وتفاعل ومحاسبه المخالفين",
+    1433749600136593449: "رد على التكتات وتفاعل ومحاسبه المخالفين ومراقبة الادارة",
+    1433749602867089498: "رد على التكتات وتفاعل ومحاسبه المخالفين وتنضيم الاداريين",
+    1371504076239405246: "رد على التكتات وتفاعل ومراقبة لاعبين ماين كرافت",
+    1092398849299058738: "مراقبة الاداريين في التكتات و مساعدتهم في حال احتاجوك",
+    1433749606633832499: "مراقبة تكتات وماين كرافت وتفاعل",
+    1433749600920928286: "مراقبة تكتات وماين كرافت وتفاعل",
+    1433877098908614816: "مراقبة تكتات وماين كرافت وتفاعل ومسؤول عن الادمنز",
+    1371504072582234286: "المسؤول عن قسم الادمن كامل",
+    1433749601529233408: "مسؤول عن توضيف المشرفين",
+    1433877184803504439: "مسؤول عن فصل وترقيات",
+    1092398849647190032: "المسؤول عن قسم الفعاليات في الخادم",
+    1092398849684938873: "نائب مسؤول القطاع الاداري",
+    1371504063086067782: "مسؤول القطاع الاداري"
+}
+
+# Channel Names for various bot functions
+LOG_CHANNEL_NAME = "staff・اللوقات・⦏👮🏻⦐"
+LEVELS_CHANNEL_NAME = "المستويات"
+DISMISSAL_BLACKLIST_CHANNEL_NAME = "الفصل-و-البلاكليست"
+RANKS_CHANNEL_NAME = "الرتب"
+ALERTS_CHANNEL_NAME = "التنبيهات"
+PROMOTIONS_CHANNEL_NAME = "الترقيات"
+NEWS_CHANNEL_NAME = "الاخبار"
+POINTS_INFO_CHANNEL_NAME = "البوينتات"
+
+
+AUTO_ROLES = {xp: role_id for role_id, xp in XP_FOR_ROLES.items()}
+
+STAFF_SALARIES = {1092398849299058736: 150, 1286654124527456317: 130, 1371504049115107450: 120, 1286656850871451688: 110, 1293197081997086805: 100, 1092398849684938873: 75, 1433749601529233408: 65, 1433749606633832499: 45}
 
 PROTECTED_IDS = {739749692308586526, 1020294577153908766}
 
@@ -140,16 +189,21 @@ def add_points(user_id: int, amount: int):
         return
     set_points(user_id, get_points(user_id) + amount)
 
-async def send_log(guild, title, description, color=0xFFD700):
+async def send_to_channel_by_name(guild, channel_name, title, description, color=0xFFD700):
+    """Sends an embed message to a channel specified by its name."""
     try:
-        channel = discord.utils.get(guild.text_channels, name=LOG_CHANNEL_NAME)
+        channel = discord.utils.get(guild.text_channels, name=channel_name)
         if not channel:
-            logging.warning(f"Log channel '{LOG_CHANNEL_NAME}' not found in guild {guild.name}")
+            logging.warning(f"Channel '{channel_name}' not found in guild {guild.name}")
             return
         embed = discord.Embed(title=title, description=description, color=color, timestamp=discord.utils.utcnow())
         await channel.send(embed=embed)
     except Exception as e:
-        logging.error(f"Failed to send log: {e}")
+        logging.error(f"Failed to send message to channel '{channel_name}': {e}")
+
+async def send_log(guild, title, description, color=0xFFD700):
+    """Sends a log message to the predefined log channel."""
+    await send_to_channel_by_name(guild, LOG_CHANNEL_NAME, title, description, color)
 
 async def check_auto_roles(member):
     if member.id in PROTECTED_IDS:
@@ -200,6 +254,8 @@ async def on_ready():
         salary_loop.start()
     if not auto_top_loop.is_running():
         auto_top_loop.start()
+    if not blacklist_check_loop.is_running():
+        blacklist_check_loop.start()
 
 
 @bot.event
@@ -263,25 +319,116 @@ async def on_message(message: discord.Message):
 # ============================================================ 
 
 @bot.command(name="help")
-async def help_command(ctx):
-    embed = discord.Embed(title="📖 Help — Points System", color=0x5865F2)
-    embed.add_field(name=f"{PREFIX}points", value="معرفة نقاطك", inline=False)
-    embed.add_field(name=f"{PREFIX}daily", value="استلام المكافأة اليومية", inline=False)
-    embed.add_field(name=f"{PREFIX}top", value="أعلى نقاط بالسيرفر", inline=False)
-    embed.add_field(name=f"{PREFIX}status", value="حالة أنظمة البوت", inline=False)
-    if is_admin(ctx.author):
-        embed.add_field(name="--- Admin Commands ---", value="\u200b", inline=False)
-        embed.add_field(name=f"{PREFIX}addpoints <@user> <amount>", value="إضافة نقاط لعضو", inline=False)
-        embed.add_field(name=f"{PREFIX}removepoints <@user> <amount>", value="خصم نقاط من عضو", inline=False)
-        embed.add_field(name=f"{PREFIX}setup", value="إعداد روم النقاط", inline=False)
-        embed.add_field(name=f"{PREFIX}panel", value="لوحة تحكم الإدارة", inline=False)
-    await ctx.send(embed=embed)
+async def help_command(ctx, category: str = None):
+    """(AR) يعرض قائمة المساعدة الشاملة."""
+    prefix = PREFIX
+    if not category:
+        embed = discord.Embed(
+            title=" قائمة المساعدة لنظام النقاط",
+            description=f"استخدم `{prefix}help <الفئة>` لعرض المزيد من المعلومات.",
+            color=0x5865F2
+        )
+        embed.set_thumbnail(url=bot.user.avatar.url if bot.user.avatar else None)
+        embed.add_field(name="اوامر", value=f"عرض جميع أوامر البوت المتاحة.\n`{prefix}help commands`", inline=True)
+        embed.add_field(name="الرتب", value=f"عرض الرتب الإدارية والمهام والنقاط المطلوبة.\n`{prefix}help ranks`", inline=True)
+        embed.add_field(name="معلومات", value=f"معلومات عن القنوات والنظام بشكل عام.\n`{prefix}help info`", inline=True)
+        
+        await ctx.send(embed=embed)
+        return
+
+    category = category.lower()
+
+    if category == "commands":
+        embed = discord.Embed(title="📖 أوامر البوت", color=0x5865F2)
+        embed.add_field(name=f"{prefix}points [member]", value="لمعرفة نقاطك أو نقاط عضو آخر.", inline=False)
+        embed.add_field(name=f"{prefix}level [member]", value="لعرض مستوى العضو ونقاطه للترقية التالية.", inline=False)
+        embed.add_field(name=f"{prefix}daily", value="للحصول على المكافأة اليومية.", inline=False)
+        embed.add_field(name=f"{prefix}top", value="لعرض قائمة أعلى الأعضاء نقاطًا.", inline=False)
+        embed.add_field(name=f"{prefix}ranks", value="لعرض الرتب والمتطلبات.", inline=False)
+        embed.add_field(name=f"{prefix}status", value="للاطلاع على حالة أنظمة البوت.", inline=False)
+        
+        if is_admin(ctx.author):
+            embed.add_field(name="--- 👮🏻 أوامر الإدارة ---", value=" ", inline=False)
+            embed.add_field(name=f"{prefix}addpoints <@user> <amount>", value="إضافة نقاط لعضو.", inline=False)
+            embed.add_field(name=f"{prefix}removepoints <@user> <amount>", value="خصم نقاط من عضو.", inline=False)
+            embed.add_field(name=f"{prefix}blacklist <@user> <days> <reason>", value="إضافة عضو للقائمة السوداء.", inline=False)
+            embed.add_field(name=f"{prefix}unblacklist <@user>", value="إزالة عضو من القائمة السوداء.", inline=False)
+            embed.add_field(name=f"{prefix}blacklistcheck <@user>", value="التحقق من حالة عضو في القائمة السوداء.", inline=False)
+            embed.add_field(name=f"{prefix}announce <#channel> <title> <message>", value="إرسال إعلان عام في قناة معينة.", inline=False)
+            embed.add_field(name=f"{prefix}promotion <@user> <@role> <reason>", value=" للإعلان عن ترقية عضو.", inline=False)
+            embed.add_field(name=f"{prefix}news <message>", value="لنشر خبر جديد.", inline=False)
+            embed.add_field(name=f"{prefix}alert <message>", value="لإرسال تنبيه إداري.", inline=False)
+            embed.add_field(name=f"{prefix}setup", value="لإعداد قناة النقاط.", inline=False)
+            embed.add_field(name=f"{prefix}panel", value="لإظهار لوحة تحكم الإدارة.", inline=False)
+        
+        await ctx.send(embed=embed)
+    
+    elif category == "ranks":
+        await ranks_command(ctx) # Use the existing ranks command
+        
+    elif category == "info":
+        embed = discord.Embed(title="معلومات عن النظام", color=0x3498DB)
+        embed.description = "هنا شرح للقنوات المختلفة التي يستخدمها البوت والغرض منها."
+        
+        embed.add_field(name="اللوقات (Logs)", value="يتم في هذه القناة تسجيل جميع الإجراءات المهمة التي يقوم بها البوت أو الإداريون، مثل إضافة/خصم النقاط، الترقيات، وغيرها.", inline=False)
+        embed.add_field(name="المستويات (Levels)", value="يتم استخدامها لعرض معلومات عن مستويات الأعضاء الإداريين بناءً على نقاطهم.", inline=False)
+        embed.add_field(name="الفصل والبلاكليست", value="يتم هنا الإعلان عن فصل الأعضاء غير المتفاعلين أو إضافة أعضاء إلى القائمة السوداء (Blacklist) ومنعهم من التقديم لفترة محددة.", inline=False)
+        embed.add_field(name="التنبيهات (Alerts)", value="قناة للقرارات الصادرة من الإدارة العليا، مثل التنبيهات حول الأداء، الأخطاء، أو العقوبات.", inline=False)
+        embed.add_field(name="الترقيات (Promotions)", value="يتم فيها الإعلان عن ترقيات الأعضاء من رتبة إلى أخرى مع ذكر السبب والمسؤول عن الترقية.", inline=False)
+        embed.add_field(name="الأخبار (News)", value="للأخبار والإعلانات الصادرة من الإدارة العليا.", inline=False)
+        embed.add_field(name="البوينتات (Points)", value="لعرض معلومات عامة عن نظام النقاط وقائمة الرتب.", inline=False)
+        
+        await ctx.send(embed=embed)
+
+    else:
+        await ctx.send(f"الفئة `{prefix} غير موجودة. استخدم `{prefix}help` لرؤية الفئات المتاحة.")
 
 @bot.command()
 async def points(ctx, member: discord.Member = None):
     """عرض نقاطك أو نقاط عضو آخر"""
     target = member or ctx.author
     await ctx.send(f"⭐ نقاط {target.display_name}: **{get_points(target.id)}**")
+
+@bot.command(name="level")
+async def level_command(ctx, member: discord.Member = None):
+    """يعرض مستوى العضو ونقاطه للترقية التالية"""
+    target = member or ctx.author
+    points = get_points(target.id)
+
+    sorted_roles = sorted(XP_FOR_ROLES.items(), key=lambda item: item[1])
+    
+    current_role = None
+    next_role = None
+    xp_for_next = 0
+
+    for role_id, xp_req in sorted_roles:
+        if points >= xp_req:
+            current_role = ctx.guild.get_role(role_id)
+        else:
+            next_role = ctx.guild.get_role(role_id)
+            xp_for_next = xp_req
+            break
+    
+    embed = discord.Embed(title=f"🏆 Level Information for {target.display_name}", color=target.color)
+    embed.set_thumbnail(url=target.avatar.url if target.avatar else target.default_avatar.url)
+    embed.add_field(name="Points", value=f"`{points}`", inline=False)
+    
+    if current_role:
+        embed.add_field(name="Current Level", value=current_role.mention, inline=False)
+    else:
+        embed.add_field(name="Current Level", value="No rank", inline=False)
+
+    if next_role:
+        points_needed = xp_for_next - points
+        embed.add_field(name="Next Level", value=f"{next_role.mention}", inline=False)
+        embed.add_field(name="Points to Next Level", value=f"`{points_needed}` more points required.", inline=False)
+        # Simple progress bar
+        progress = int((points / xp_for_next) * 20)
+        embed.add_field(name="Progress", value=f"[`{'=' * progress}{' ' * (20 - progress)}`]", inline=False)
+    else:
+        embed.add_field(name="Next Level", value="You are at the highest level! 🎉", inline=False)
+
+    await ctx.send(embed=embed)
 
 @bot.command()
 async def addpoints(ctx, member: discord.Member, amount: int):
@@ -375,6 +522,134 @@ async def status(ctx):
             embed.add_field(name="📌 Points Channel", value="❌ لم يتم الإعداد", inline=False)
             
     await ctx.send(embed=embed)
+
+@bot.command(name="ranks")
+async def ranks_command(ctx):
+    """يعرض قائمة بالرتب ومهامها ومتطلباتها"""
+    embed = discord.Embed(title="📜 الرتب والمهام والمتطلبات", color=0x3498DB)
+    
+    # Create a reverse mapping from role ID to XP for sorting
+    role_id_to_xp = {v: k for k, v in XP_FOR_ROLES.items()}
+    
+    # Sort roles by XP requirement
+    sorted_role_ids = sorted(ROLE_TASKS.keys(), key=lambda r: role_id_to_xp.get(r, float('inf')))
+
+    for role_id in sorted_role_ids:
+        task = ROLE_TASKS.get(role_id, "No task defined.")
+        xp_req = role_id_to_xp.get(role_id)
+        role = ctx.guild.get_role(role_id)
+        if role:
+            embed.add_field(
+                name=f"{role.name}",
+                value=f"**المهام:** {task}\n**النقاط المطلوبة:** {xp_req if xp_req is not None else 'N/A'}",
+                inline=False
+            )
+            
+    await ctx.send(embed=embed)
+
+# ============================================================
+# ANNOUNCEMENT COMMANDS
+# ============================================================
+
+@bot.command()
+@commands.has_permissions(administrator=True)
+async def announce(ctx, channel: discord.TextChannel, title: str, *, message: str):
+    """إرسال إعلان إلى قناة محددة"""
+    if not is_admin(ctx.author):
+        return await ctx.send("❌ ما عندك صلاحية")
+    
+    await send_to_channel_by_name(ctx.guild, channel.name, title, message)
+    await ctx.send(f"✅ تم إرسال الإعلان إلى {channel.mention}")
+
+@bot.command()
+@commands.has_permissions(administrator=True)
+async def promotion(ctx, member: discord.Member, role: discord.Role, *, reason: str):
+    """الإعلان عن ترقية عضو"""
+    if not is_admin(ctx.author):
+        return await ctx.send("❌ ما عندك صلاحية")
+
+    description = f"**Congratulations to {member.mention} on their promotion to {role.mention}!**\n\n**Reason:** {reason}\n\nPromoted by: {ctx.author.mention}"
+    await send_to_channel_by_name(ctx.guild, PROMOTIONS_CHANNEL_NAME, "🎉 Promotion", description, 0x00FF00)
+    await ctx.send("✅ تم إعلان الترقية.")
+
+@bot.command()
+@commands.has_permissions(administrator=True)
+async def news(ctx, *, message: str):
+    """نشر خبر في قناة الأخبار"""
+    if not is_admin(ctx.author):
+        return await ctx.send("❌ ما عندك صلاحية")
+
+    await send_to_channel_by_name(ctx.guild, NEWS_CHANNEL_NAME, "📰 News", message, 0x3498DB)
+    await ctx.send("✅ تم نشر الخبر.")
+
+@bot.command()
+@commands.has_permissions(administrator=True)
+async def alert(ctx, *, message: str):
+    """إرسال تنبيه إلى قناة التنبيهات"""
+    if not is_admin(ctx.author):
+        return await ctx.send("❌ ما عندك صلاحية")
+
+    await send_to_channel_by_name(ctx.guild, ALERTS_CHANNEL_NAME, "️ Alert", message, 0xFFCC00)
+    await ctx.send("✅ تم إرسال التنبيه.")
+
+# ============================================================
+# BLACKLIST COMMANDS
+# ============================================================
+
+@bot.command()
+@commands.has_permissions(administrator=True)
+async def blacklist(ctx, member: discord.Member, duration: int, *, reason: str):
+    """حظر عضو من التقديمات"""
+    if not is_admin(ctx.author):
+        return await ctx.send("❌ ما عندك صلاحية")
+    
+    end_date = time.time() + (duration * 86400) # days to seconds
+    
+    if DB_TYPE == "postgres":
+        query = "INSERT INTO blacklist (user_id, reason, end_date) VALUES (%s, %s, %s) ON CONFLICT (user_id) DO UPDATE SET reason = EXCLUDED.reason, end_date = EXCLUDED.end_date"
+    else: # sqlite
+        query = "INSERT OR REPLACE INTO blacklist (user_id, reason, end_date) VALUES (?, ?, ?)"
+    
+    c.execute(query, (member.id, reason, end_date))
+    db.commit()
+    
+    await ctx.send(f"✅ تم إضافة {member.mention} إلى القائمة السوداء لمدة {duration} يوم.")
+    await send_to_channel_by_name(ctx.guild, DISMISSAL_BLACKLIST_CHANNEL_NAME, "🚫 Blacklisted", f"**User:** {member.mention}\n**By:** {ctx.author.mention}\n**Duration:** {duration} days\n**Reason:** {reason}", 0xFF0000)
+
+@bot.command()
+@commands.has_permissions(administrator=True)
+async def unblacklist(ctx, member: discord.Member):
+    """إزالة عضو من القائمة السوداء"""
+    if not is_admin(ctx.author):
+        return await ctx.send("❌ ما عندك صلاحية")
+
+    if DB_TYPE == "postgres":
+        query = "DELETE FROM blacklist WHERE user_id = %s"
+    else: # sqlite
+        query = "DELETE FROM blacklist WHERE user_id = ?"
+    
+    c.execute(query, (member.id,))
+    db.commit()
+
+    await ctx.send(f"✅ تم إزالة {member.mention} من القائمة السوداء.")
+    await send_to_channel_by_name(ctx.guild, DISMISSAL_BLACKLIST_CHANNEL_NAME, "✅ Unblacklisted", f"**User:** {member.mention}\n**By:** {ctx.author.mention}", 0x00FF00)
+
+@bot.command()
+async def blacklistcheck(ctx, member: discord.Member):
+    """التحقق من وجود عضو في القائمة السوداء"""
+    query = "SELECT reason, end_date FROM blacklist WHERE user_id = %s" if DB_TYPE == "postgres" else "SELECT reason, end_date FROM blacklist WHERE user_id = ?"
+    c.execute(query, (member.id,))
+    r = c.fetchone()
+    if r:
+        remaining_seconds = r["end_date"] - time.time()
+        if remaining_seconds > 0:
+            remaining_days = int(remaining_seconds / 86400)
+            await ctx.send(f"🔴 {member.mention} في القائمة السوداء.\n**السبب:** {r['reason']}\n**متبقي:** {remaining_days} يوم.")
+        else:
+            await ctx.send(f"🟢 {member.mention} ليس في القائمة السوداء.")
+    else:
+        await ctx.send(f"🟢 {member.mention} ليس في القائمة السوداء.")
+
 
 # ============================================================ 
 # ADMIN COMMANDS & SETUP
@@ -518,6 +793,30 @@ async def auto_top_loop():
             logging.warning(f"Missing permissions to send message in {channel.name} in {guild.name}")
         except Exception as e:
             logging.error(f"Error in auto_top_loop: {e}")
+
+@tasks.loop(hours=1)
+async def blacklist_check_loop():
+    if not db or not c: return
+
+    query = "SELECT user_id, reason, end_date FROM blacklist"
+    c.execute(query)
+    rows = c.fetchall()
+    now = time.time()
+
+    for row in rows:
+        if now > row["end_date"]:
+            if DB_TYPE == "postgres":
+                del_query = "DELETE FROM blacklist WHERE user_id = %s"
+            else: # sqlite
+                del_query = "DELETE FROM blacklist WHERE user_id = ?"
+            c.execute(del_query, (row["user_id"],))
+            db.commit()
+
+            for guild in bot.guilds:
+                member = guild.get_member(row["user_id"])
+                if member:
+                    await send_to_channel_by_name(guild, DISMISSAL_BLACKLIST_CHANNEL_NAME, "⌛️ Blacklist Expired", f"**User:** {member.mention}'s blacklist has expired.", 0x00FF00)
+
 
 # ============================================================ 
 # BOT RUN
