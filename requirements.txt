@@ -3,3 +3,4 @@ python-dotenv
 aiosqlite
 psycopg2-binary
 flask
+asyncpg
