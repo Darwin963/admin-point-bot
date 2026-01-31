@@ -152,7 +152,6 @@ DAILY_MIN = 20
 DAILY_MAX = 200
 DAILY_COOLDOWN = 86400  # 24h
 SALARY_COOLDOWN = 86400 # 24h
-TOP_BROADCAST_INTERVAL = 180  # 3 minutes
 
 # In-memory stores
 daily_claims = {}
@@ -252,8 +251,6 @@ async def on_ready():
     # Start background tasks
     if not salary_loop.is_running():
         salary_loop.start()
-    if not auto_top_loop.is_running():
-        auto_top_loop.start()
     if not blacklist_check_loop.is_running():
         blacklist_check_loop.start()
 
@@ -655,46 +652,197 @@ async def blacklistcheck(ctx, member: discord.Member):
 # ADMIN COMMANDS & SETUP
 # ============================================================ 
 
+class ChannelSetupModal(discord.ui.Modal, title="إعداد قناة النقاط"):
+    def __init__(self, guild):
+        super().__init__()
+        self.guild = guild
+        self.channel_id = discord.ui.TextInput(
+            label="معرف القناة (ID)",
+            placeholder="أدخل معرف القناة فقط (مثلاً: 123456789)",
+            required=True,
+            min_length=17,
+            max_length=20
+        )
+        self.add_item(self.channel_id)
+    
+    async def on_submit(self, interaction: discord.Interaction):
+        if not db or not c:
+            return await interaction.response.send_message("❌ Database not connected.", ephemeral=True)
+        
+        try:
+            channel_id = int(self.channel_id.value)
+            channel = self.guild.get_channel(channel_id)
+            
+            if not channel:
+                return await interaction.response.send_message("❌ لم يتم العثور على القناة.", ephemeral=True)
+            
+            if DB_TYPE == "postgres":
+                query = "INSERT INTO config (guild_id, points_channel) VALUES (%s, %s) ON CONFLICT (guild_id) DO UPDATE SET points_channel = EXCLUDED.points_channel"
+            else:
+                query = "INSERT OR REPLACE INTO config (guild_id, points_channel) VALUES (?, ?)"
+            
+            c.execute(query, (interaction.guild.id, channel_id))
+            db.commit()
+            
+            await interaction.response.send_message(f"✅ تم تحديد {channel.mention} كقناة للنقاط", ephemeral=True)
+            
+        except ValueError:
+            await interaction.response.send_message("❌ الرجاء إدخال معرف صالح.", ephemeral=True)
+
+
+class ChannelSelectView(discord.ui.View):
+    def __init__(self, guild):
+        super().__init__(timeout=60)
+        self.guild = guild
+        self.selected_channel = None
+    
+    @discord.ui.select(
+        placeholder="📌 اختر قناة النقاط",
+        min_values=1,
+        max_values=1
+    )
+    async def select_channel(self, interaction: discord.Interaction, select: discord.ui.Select):
+        if not db or not c:
+            return await interaction.response.send_message("❌ Database not connected.", ephemeral=True)
+        
+        channel_id = int(select.values[0])
+        channel = self.guild.get_channel(channel_id)
+        
+        if DB_TYPE == "postgres":
+            query = "INSERT INTO config (guild_id, points_channel) VALUES (%s, %s) ON CONFLICT (guild_id) DO UPDATE SET points_channel = EXCLUDED.points_channel"
+        else:
+            query = "INSERT OR REPLACE INTO config (guild_id, points_channel) VALUES (?, ?)"
+        
+        c.execute(query, (interaction.guild.id, channel_id))
+        db.commit()
+        
+        self.selected_channel = channel.mention
+        await interaction.response.send_message(f"✅ تم تحديد {channel.mention} كقناة للنقاط", ephemeral=True)
+        self.stop()
+    
+    @discord.ui.button(label="📝 إدخال يدوي", style=discord.ButtonStyle.secondary, emoji="⌨️")
+    async def manual_input(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_modal(ChannelSetupModal(self.guild))
+
+
 class SetupView(discord.ui.View):
     def __init__(self, guild):
         super().__init__(timeout=60)
         self.guild = guild
         
+        # Get all text channels and create options (max 25 due to Discord limit)
+        channels = [ch for ch in guild.text_channels]
         options = [
-            discord.SelectOption(label=ch.name, value=str(ch.id))
-            for ch in self.guild.text_channels
+            discord.SelectOption(label=ch.name[:100], value=str(ch.id), description=ch.category.name if ch.category else "No Category")
+            for ch in channels[:25]
         ]
         
-        if len(options) > 25:
+        if len(channels) > 25:
             logging.warning(f"Guild {guild.name} has more than 25 text channels. Only showing the first 25.")
-            options = options[:25]
+        
+        self.add_item(ChannelSelectSelect(custom_id="setup_select", options=options, placeholder="📌 اختر قناة النقاط"))
 
-        self.children[0].options = options
 
-    @discord.ui.select(placeholder="📌 اختر روم النقاط")
-    async def select_channel(self, interaction: discord.Interaction, select: discord.ui.Select):
+class ChannelSelectSelect(discord.ui.Select):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+    
+    async def callback(self, interaction: discord.Interaction):
         if not db or not c:
             return await interaction.response.send_message("❌ Database not connected.", ephemeral=True)
-            
-        channel_id = int(select.values[0])
-
+        
+        channel_id = int(self.values[0])
+        channel = interaction.guild.get_channel(channel_id)
+        
         if DB_TYPE == "postgres":
             query = "INSERT INTO config (guild_id, points_channel) VALUES (%s, %s) ON CONFLICT (guild_id) DO UPDATE SET points_channel = EXCLUDED.points_channel"
-        else: # sqlite
+        else:
             query = "INSERT OR REPLACE INTO config (guild_id, points_channel) VALUES (?, ?)"
         
         c.execute(query, (interaction.guild.id, channel_id))
         db.commit()
-        await interaction.response.send_message("✅ تم تحديد روم النقاط بنجاح", ephemeral=True)
+        
+        await interaction.response.send_message(f"✅ تم تحديد {channel.mention} كقناة للنقاط", ephemeral=True)
+
 
 @bot.command()
 @commands.has_permissions(administrator=True)
 async def setup(ctx):
+    """إعداد قناة النقاط"""
     if not db or not c:
         return await ctx.send("❌ Database not connected.")
-    embed = discord.Embed(title="⚙️ Setup Points System", description="اختر الروم الذي سيظهر فيه نظام النقاط", color=0xFFD700)
-    view = SetupView(ctx.guild)
+    
+    # Create a view with channel selection
+    view = discord.ui.View(timeout=60)
+    
+    channels = [ch for ch in ctx.guild.text_channels]
+    options = [
+        discord.SelectOption(label=ch.name[:100], value=str(ch.id))
+        for ch in channels[:25]
+    ]
+    
+    async def select_callback(interaction: discord.Interaction):
+        if not db or not c:
+            return await interaction.response.send_message("❌ Database not connected.", ephemeral=True)
+        
+        channel_id = int(interaction.data["values"][0])
+        channel = ctx.guild.get_channel(channel_id)
+        
+        if DB_TYPE == "postgres":
+            query = "INSERT INTO config (guild_id, points_channel) VALUES (%s, %s) ON CONFLICT (guild_id) DO UPDATE SET points_channel = EXCLUDED.points_channel"
+        else:
+            query = "INSERT OR REPLACE INTO config (guild_id, points_channel) VALUES (?, ?)"
+        
+        c.execute(query, (ctx.guild.id, channel_id))
+        db.commit()
+        
+        await interaction.response.send_message(f"✅ تم تحديد {channel.mention} كقناة للنقاط", ephemeral=True)
+    
+    select = discord.ui.Select(
+        placeholder="📌 اختر قناة النقاط",
+        options=options,
+        custom_id="setup_select"
+    )
+    select.callback = select_callback
+    view.add_item(select)
+    
+    # Add manual input button
+    async def modal_callback(interaction: discord.Interaction):
+        await interaction.response.send_modal(ChannelSetupModal(ctx.guild))
+    
+    manual_btn = discord.ui.Button(
+        label="📝 إدخال يدوي",
+        style=discord.ButtonStyle.secondary,
+        emoji="⌨️",
+        custom_id="manual_input"
+    )
+    manual_btn.callback = modal_callback
+    view.add_item(manual_btn)
+    
+    embed = discord.Embed(
+        title="⚙️ إعداد نظام النقاط",
+        description="اختر القناة التي سيظهر فيها نظام النقاط.\n\n💡 يمكنك إدخال معرف القناة يدوياً إذا لم تجدها في القائمة.",
+        color=0xFFD700
+    )
     await ctx.send(embed=embed, view=view)
+
+@bot.command()
+@commands.has_permissions(administrator=True)
+async def removesetup(ctx):
+    """إزالة إعداد قناة النقاط"""
+    if not db or not c:
+        return await ctx.send("❌ Database not connected.")
+    
+    if DB_TYPE == "postgres":
+        query = "DELETE FROM config WHERE guild_id = %s"
+    else:
+        query = "DELETE FROM config WHERE guild_id = ?"
+    
+    c.execute(query, (ctx.guild.id,))
+    db.commit()
+    
+    await ctx.send("✅ تم إزالة إعداد قناة النقاط بنجاح")
+    await send_log(ctx.guild, "⚙️ Remove Setup", f"{ctx.author.mention} قام بإزالة إعداد قناة النقاط", 0xFF9900)
 
 class ControlPanel(discord.ui.View):
     def __init__(self):
@@ -707,25 +855,102 @@ class ControlPanel(discord.ui.View):
             return False
         return True
 
-    @discord.ui.button(label="🔄 Reset Points", style=discord.ButtonStyle.danger, custom_id="cpanel_reset")
-    async def reset_points(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if not db or not c:
-            return await interaction.response.send_message("❌ Database not connected.", ephemeral=True)
-            
-        c.execute("DELETE FROM points")
-        db.commit()
-        await interaction.response.send_message("✅ تم تصفير جميع النقاط", ephemeral=True)
-        await send_log(interaction.guild, "🔄 Reset", f"{interaction.user.mention} قام بتصفير جميع النقاط", 0xFF0000)
+    @discord.ui.button(label="👤 إضافة نقاط", style=discord.ButtonStyle.success, emoji="➕", custom_id="panel_addpoints")
+    async def add_points(self, interaction: discord.Interaction, button: discord.ui.Button):
+        embed = discord.Embed(
+            title="➕ إضافة نقاط",
+            description="استخدم الأمر: `-addpoints <@member> <amount>`\n\nمثال: `-addpoints @user 100`",
+            color=0x00FF00
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
 
-    @discord.ui.button(label="📊 My Points", style=discord.ButtonStyle.secondary, custom_id="cpanel_mypoints")
-    async def my_points(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_message(f"⭐ نقاطك: {get_points(interaction.user.id)}", ephemeral=True)
+    @discord.ui.button(label="👤 خصم نقاط", style=discord.ButtonStyle.danger, emoji="➖", custom_id="panel_removepoints")
+    async def remove_points(self, interaction: discord.Interaction, button: discord.ui.Button):
+        embed = discord.Embed(
+            title="➖ خصم نقاط",
+            description="استخدم الأمر: `-removepoints <@member> <amount>`\n\nمثال: `-removepoints @user 50`",
+            color=0xFF0000
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+    @discord.ui.button(label="🚫 القائمة السوداء", style=discord.ButtonStyle.danger, emoji="⛔", custom_id="panel_blacklist")
+    async def blacklist(self, interaction: discord.Interaction, button: discord.ui.Button):
+        embed = discord.Embed(
+            title="🚫 القائمة السوداء",
+            description="**أمر الحظر:**\n`-blacklist <@member> <days> <reason>`\n\nمثال: `-blacklist @user 30 Spam`\n\n**إزالة الحظر:**\n`-unblacklist <@member>`\n\n**التحقق:**\n`-blacklistcheck <@member>`",
+            color=0xFF0000
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+    @discord.ui.button(label="📢 إعلان", style=discord.ButtonStyle.primary, emoji="📣", custom_id="panel_announce")
+    async def announce(self, interaction: discord.Interaction, button: discord.ui.Button):
+        embed = discord.Embed(
+            title="📢 إرسال إعلان",
+            description="استخدم الأمر: `-announce <#channel> <title> <message>`\n\nمثال: `-announce #general ⚠️ تنبيه هام`\n\nأو استخدم أوامر الإدارة الأخرى:\n- `-promotion` - للترقيات\n- `-news` - للأخبار\n- `-alert` - للتنبيهات",
+            color=0x5865F2
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+    @discord.ui.button(label="📊 النقاط", style=discord.ButtonStyle.secondary, emoji="⭐", custom_id="panel_points")
+    async def points_menu(self, interaction: discord.Interaction, button: discord.ui.Button):
+        embed = discord.Embed(
+            title="⭐ أوامر النقاط",
+            description="**-points [member]** - عرض نقاطك أو نقاط عضو آخر\n\n**-level [member]** - عرض المستوى ونقاط الترقية\n\n**-top** - عرض أعلى النقاط\n\n**-ranks** - عرض الرتب والمتطلبات",
+            color=0xFFD700
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+    @discord.ui.button(label="💰 اليومية", style=discord.ButtonStyle.success, emoji="🎁", custom_id="panel_daily")
+    async def daily(self, interaction: discord.Interaction, button: discord.ui.Button):
+        embed = discord.Embed(
+            title="🎁 المكافأة اليومية",
+            description="استخدم الأمر: `-daily`\n\nللحصول على نقاط يومية عشوائية (20-200 نقطة)\n\n⚠️ يمكنك المطالبة مرة كل 24 ساعة فقط",
+            color=0x00FF00
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+    @discord.ui.button(label="📈 الحالة", style=discord.ButtonStyle.secondary, emoji="📡", custom_id="panel_status")
+    async def status(self, interaction: discord.Interaction, button: discord.ui.Button):
+        embed = discord.Embed(
+            title="📡 حالة النظام",
+            description="استخدم الأمر: `-status`\n\nلعرض حالة جميع أنظمة البوت",
+            color=0x00FFAA
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+    @discord.ui.button(label="⚙️ الإعداد", style=discord.ButtonStyle.secondary, emoji="🔧", custom_id="panel_setup")
+    async def setup_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        embed = discord.Embed(
+            title="⚙️ إعداد نظام النقاط",
+            description="**-setup** - لتحديد قناة النقاط\n\n**-removesetup** - لإزالة إعداد قناة النقاط",
+            color=0xFFD700
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
 
 @bot.command()
 async def panel(ctx):
+    """لوحة تحكم الإدارة"""
     if not is_admin(ctx.author):
         return await ctx.send("❌ ما عندك صلاحية")
-    embed = discord.Embed(title="🛠 Control Panel", color=0xFFD700)
+    
+    embed = discord.Embed(
+        title="🛠 لوحة تحكم الإدارة",
+        description="**أوامر الإدارة المتاحة:**\n\n" +
+        "➕ **إضافة نقاط:** `-addpoints <@member> <amount>`\n" +
+        "➖ **خصم نقاط:** `-removepoints <@member> <amount>`\n" +
+        "⛔ **القائمة السوداء:** `-blacklist <@member> <days> <reason>`\n" +
+        "✅ **إزالة الحظر:** `-unblacklist <@member>`\n" +
+        "🔍 **التحقق:** `-blacklistcheck <@member>`\n" +
+        "📢 **إعلان:** `-announce <#channel> <title> <message>`\n" +
+        "🎉 **ترقية:** `-promotion <@member> <@role> <reason>`\n" +
+        "📰 **خبر:** `-news <message>`\n" +
+        "⚠️ **تنبيه:** `-alert <message>`\n" +
+        "⚙️ **إعداد:** `-setup`\n" +
+        "❌ **إزالة الإعداد:** `-removesetup`",
+        color=0xFFD700
+    )
+    embed.set_footer(text="جميع هذه الأوامر متاحة فقط للإدارة العليا")
     await ctx.send(embed=embed, view=ControlPanel())
 
 
@@ -754,45 +979,13 @@ async def salary_loop():
 
                         if DB_TYPE == "postgres":
                             c.execute("INSERT INTO salaries (user_id, last_salary) VALUES (%s,%s) ON CONFLICT (user_id) DO UPDATE SET last_salary = EXCLUDED.last_salary", (member.id, now))
-                        else: # sqlite
+                        else:
                             c.execute("INSERT OR REPLACE INTO salaries VALUES (?,?)", (member.id, now))
                         db.commit()
                         
                         await send_log(guild, "💰 Salary", f"{member.mention} استلم راتب {amount} نقطة", 0x00FF00)
                         await check_auto_roles(member)
                     break # Process only the highest salary role
-
-@tasks.loop(seconds=TOP_BROADCAST_INTERVAL)
-async def auto_top_loop():
-    if not db or not c: return
-    
-    for guild in bot.guilds:
-        query = "SELECT points_channel FROM config WHERE guild_id = %s" if DB_TYPE == "postgres" else "SELECT points_channel FROM config WHERE guild_id = ?"
-        c.execute(query, (guild.id,))
-        r = c.fetchone()
-        if not r: continue
-        
-        channel = guild.get_channel(r["points_channel"])
-        if not channel: continue
-
-        c.execute("SELECT user_id, points FROM points ORDER BY points DESC LIMIT 5")
-        rows = c.fetchall()
-        if not rows: continue
-
-        desc = ""
-        for i, row in enumerate(rows, start=1):
-            member = guild.get_member(row['user_id'])
-            name = member.mention if member else f"<@{row['user_id']}>"
-            desc += f"**#{i}** {name} — `{row['points']}` نقطة\n"
-
-        embed = discord.Embed(title="🏆 أعلى النقاط", description=desc, color=0xFFD700)
-        
-        try:
-            await channel.send(embed=embed)
-        except discord.errors.Forbidden:
-            logging.warning(f"Missing permissions to send message in {channel.name} in {guild.name}")
-        except Exception as e:
-            logging.error(f"Error in auto_top_loop: {e}")
 
 @tasks.loop(hours=1)
 async def blacklist_check_loop():
@@ -807,7 +1000,7 @@ async def blacklist_check_loop():
         if now > row["end_date"]:
             if DB_TYPE == "postgres":
                 del_query = "DELETE FROM blacklist WHERE user_id = %s"
-            else: # sqlite
+            else:
                 del_query = "DELETE FROM blacklist WHERE user_id = ?"
             c.execute(del_query, (row["user_id"],))
             db.commit()
