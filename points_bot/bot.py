@@ -356,6 +356,7 @@ async def help_command(ctx, category: str = None):
             embed.add_field(name=f"{prefix}news <message>", value="لنشر خبر جديد.", inline=False)
             embed.add_field(name=f"{prefix}alert <message>", value="لإرسال تنبيه إداري.", inline=False)
             embed.add_field(name=f"{prefix}setup", value="لإعداد قناة النقاط.", inline=False)
+            embed.add_field(name=f"{prefix}removesetup", value="لإزالة إعداد قناة النقاط.", inline=False)
             embed.add_field(name=f"{prefix}panel", value="لإظهار لوحة تحكم الإدارة.", inline=False)
         
         await ctx.send(embed=embed)
